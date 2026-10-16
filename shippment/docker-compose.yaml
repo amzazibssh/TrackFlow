@@ -1,0 +1,12 @@
+services:
+  oracle:
+    image: gvenzl/oracle-free:slim
+    ports: ["1521:1521"]
+    environment:
+      ORACLE_PASSWORD: oracle
+      APP_USER: trackflow
+      APP_USER_PASSWORD: trackflow
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+volumes:
+  oracle-data:
