@@ -14,7 +14,7 @@ public enum ShipmentStatus {
             FAILED, Set.of(OUT_FOR_DELIVERY, RETURNED)
     );
 
-    boolean canTransitionTo(ShipmentStatus next) {
+    public boolean canTransitionTo(ShipmentStatus next) {
         return ALLOWED.getOrDefault(this, Set.of()).contains(next);
     }
 }
