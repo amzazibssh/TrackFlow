@@ -32,7 +32,7 @@ public class Shipment {
     private LocalDate estimatedDeliveryDate; // TODO: replace the fixed +15 days with a dedicated estimation service
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private ShipmentStatus status; // TODO: enforce canTransitionTo when status updates are implemented
+    private ShipmentStatus status = ShipmentStatus.CREATED; // TODO: enforce canTransitionTo when status updates are implemented
     private BigDecimal weightKg;
 
     @OneToMany(mappedBy = "shipment", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
@@ -46,12 +46,7 @@ public class Shipment {
 
     @PrePersist
     void initializing() {
-        if (trackingNumber == null) {
-            String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
-            trackingNumber = "TF-" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE) + "-" + suffix;
-        }
         estimatedDeliveryDate = LocalDate.now().plusDays(15);
-        status = ShipmentStatus.CREATED;
         createdBy = "user";
         Instant now = Instant.now();
         createdAt = now;
