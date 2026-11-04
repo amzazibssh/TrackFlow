@@ -2,8 +2,10 @@ package com.TrackFlow.shipment;
 
 import com.TrackFlow.shipment.dtos.entitiesDTO.CustomerDTO;
 import com.TrackFlow.shipment.dtos.requests.CreateShipmentRequest;
+import com.TrackFlow.shipment.dtos.requests.UpdateStatusRequest;
 import com.TrackFlow.shipment.dtos.response.ShipmentResponse;
 import com.TrackFlow.shipment.entities.enums.IdType;
+import com.TrackFlow.shipment.entities.enums.ShipmentStatus;
 import com.TrackFlow.shipment.repositories.ShipmentRepository;
 import com.TrackFlow.shipment.services.interfaces.ShipmentService;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -30,8 +32,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -94,6 +95,81 @@ class ShipmentEventIT {
             assertNotNull(found, "No event received for " + created.trackingNumber());
             assertTrue(found.value().contains(created.trackingNumber()));
             assertTrue(found.value().contains("Marrakech"));
+        }
+    }
+
+    @Test
+    void shouldPublishShipmentStatusChangedEventToKafka() {
+        Properties props = new Properties();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "test-" + UUID.randomUUID());
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+
+        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props)) {
+
+            // Subscribe before publishing the event
+            consumer.subscribe(List.of("shipment.status-changed"));
+
+            ShipmentResponse created = shipmentService.addShipment(
+                    new CreateShipmentRequest(
+                            "Marrakech", "Casablanca",
+                            LocalDate.of(2026, 10, 25), 2.5,
+                            new CustomerDTO(
+                                    IdType.CIN, "EE989898",
+                                    "test_name", "test_last_name",
+                                    "0607080900", "test@gmail.com"
+                            )
+                    )
+            );
+
+            // Ensure the consumer has received its partition assignment
+            long assignmentDeadline = System.currentTimeMillis() + 10_000;
+
+            while (consumer.assignment().isEmpty()
+                    && System.currentTimeMillis() < assignmentDeadline) {
+                consumer.poll(Duration.ofMillis(100));
+            }
+
+            assertTrue(!consumer.assignment().isEmpty(),
+                    "Consumer was not assigned a partition");
+
+            // Update status: CREATED -> PICKED_UP
+            shipmentService.updateShipmentStatus(
+                    new UpdateStatusRequest(
+                            created.trackingNumber(),
+                            ShipmentStatus.PICKED_UP
+                    )
+            );
+
+            ConsumerRecord<String, String> found = null;
+            long deadline = System.currentTimeMillis() + 15_000;
+
+            while (found == null && System.currentTimeMillis() < deadline) {
+                ConsumerRecords<String, String> records =
+                        consumer.poll(Duration.ofMillis(500));
+
+                for (ConsumerRecord<String, String> record : records) {
+                    if (created.trackingNumber().equals(record.key())) {
+                        found = record;
+                        break;
+                    }
+                }
+            }
+
+            assertNotNull(found, "No status-changed event received");
+
+            assertTrue(found.value().contains(created.trackingNumber()));
+            assertTrue(found.value().contains("CREATED"));
+            assertTrue(found.value().contains("PICKED_UP"));
+
+            ShipmentResponse updated =
+                    shipmentService.getShipmentByTrackingNumberForAgent(
+                            created.trackingNumber()
+                    );
+
+            assertEquals(ShipmentStatus.PICKED_UP, updated.status());
         }
     }
 }

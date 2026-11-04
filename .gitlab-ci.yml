@@ -1,0 +1,8 @@
+stages:
+  - test
+
+hello_world:
+  stage: test
+  script:
+    - echo "Hello from TrackFlow!"
+    - echo "GitLab CI/CD is working!"
