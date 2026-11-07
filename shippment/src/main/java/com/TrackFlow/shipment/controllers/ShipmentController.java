@@ -22,12 +22,13 @@ public class ShipmentController {
     }
 
     // TODO: restrict to AGENT role
-    @PostMapping("/agent")
+    @PostMapping("/agent/add-shipment")
     public ResponseEntity<ShipmentResponse> addShipment(@Valid @RequestBody CreateShipmentRequest request){
         ShipmentResponse response = shipmentService.addShipment(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    // TODO: restrict to CLIENT role
     @GetMapping("/client/{trackingNumber}")
     public ResponseEntity<ShipmentResponse> getShipmentByTrackingNumberForClient(
             @PathVariable String trackingNumber) {

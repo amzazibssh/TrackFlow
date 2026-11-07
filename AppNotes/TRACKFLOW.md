@@ -96,7 +96,7 @@ Terminal states: `DELIVERED`, `CANCELED`, `RETURNED`. Cancellation is only allow
 
 ### Phase 2
 
-#### identity-service
+####  identity-service
 - Role: users, roles and authentication.
 - Provides: JWT issuance, role-based access (customer, admin, dispatcher, driver, finance).
 

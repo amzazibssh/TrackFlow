@@ -1,4 +1,8 @@
 package com.TrackFlow.shipment.dtos.response;
 
-public class CustomerResponse {
+import java.util.UUID;
+
+public record CustomerResponse (
+        UUID customerId
+        ){
 }

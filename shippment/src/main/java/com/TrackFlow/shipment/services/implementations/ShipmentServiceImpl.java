@@ -2,6 +2,7 @@ package com.TrackFlow.shipment.services.implementations;
 
 import com.TrackFlow.shipment.dtos.requests.CreateShipmentRequest;
 import com.TrackFlow.shipment.dtos.requests.UpdateStatusRequest;
+import com.TrackFlow.shipment.dtos.response.CustomerResponse;
 import com.TrackFlow.shipment.dtos.response.ShipmentResponse;
 import com.TrackFlow.shipment.entities.Shipment;
 import com.TrackFlow.shipment.entities.ShipmentStatusHistory;
@@ -34,20 +35,23 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final ShipmentRepository shipmentRepository;
     private final TrackingNumberGenerator trackingNumberGenerator;
     private final ApplicationEventPublisher eventPublisher;
+    private final IdentityClient identityClient;
 
     public ShipmentServiceImpl(
             ShipmentRepository shipmentRepository,
             TrackingNumberGenerator trackingNumberGenerator,
-            ApplicationEventPublisher eventPublisher
+            ApplicationEventPublisher eventPublisher,
+            IdentityClient identityClient
     ){
         this.shipmentRepository = shipmentRepository;
         this.trackingNumberGenerator = trackingNumberGenerator;
         this.eventPublisher = eventPublisher;
+        this.identityClient = identityClient;
     }
     @Override
     @Transactional
     @Retryable(includes = DataIntegrityViolationException.class, maxRetries = 3)
-    @PreAuthorize("hasRole('AGENT')")
+    // @PreAuthorize("hasRole('AGENT')")
     public ShipmentResponse addShipment(CreateShipmentRequest request) {
 
         //SHIPMENT CREATION
@@ -57,7 +61,8 @@ public class ShipmentServiceImpl implements ShipmentService {
         shipment.setDestinationAddress(request.destinationAddress());
         shipment.setPickupDate(request.pickupDate());
         shipment.setWeightKg(BigDecimal.valueOf(request.weightKg()));
-        shipment.setCustomerId(UUID.randomUUID()); // TODO: replace it with customerId from customer_service
+        CustomerResponse customerResponse = identityClient.getCustomerIdByIdNumber(request.customerDTO());
+        shipment.setCustomerId(customerResponse.customerId()); // TODO: replace it with customerId from customer_service
 
          //SHIPMENT STATUS HISTORY CREATION
         ShipmentStatusHistory shipmentStatusHistory = createShipmentStatusHistory(shipment, null);
@@ -122,7 +127,8 @@ public class ShipmentServiceImpl implements ShipmentService {
                 shipment.getStatus(),
                 shipment.getWeightKg(),
                 shipment.getCreatedAt(),
-                shipment.getUpdatedAt()
+                shipment.getUpdatedAt(),
+                shipment.getCustomerId()
         );
     }
 
